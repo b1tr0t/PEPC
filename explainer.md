@@ -1,5 +1,66 @@
 # Page Embedded Permission Control (PEPC)
 
+## tl;dr
+
+We propose a semantic permission element with styling constraints that ensures a
+very high level of confidence concerning *user intent* to make a permission
+decision. We believe this solves user problems related to accessibility,
+context, regret and more. The permission element is more accessible and more
+secure than the current current permission journeys as the semantic element is
+by default more screen reader friendly than JavaScript and full page modal
+confirmation UI reduces risk of change blindness and makes it more difficult for
+sites to manipulate the user's decision making by obscuring site content during
+the critical decision moment of the journey. A semantic element and modal UI are
+connected in the same proposal as accurately capturing user intent is essential
+to reducing the modal's potential for user annoyance. While we believe
+improvements to existing capability based permission journeys can and should be
+explored, we believe there to have limited headroom for optimization, and that
+this proposal offers a significantly better user experience for users and
+developers.
+
+- [Page Embedded Permission Control (PEPC)](#page-embedded-permission-control-pepc)
+   * [tl;dr](#tldr)
+   * [Introduction](#introduction)
+   * [Proposal](#proposal)
+   * [Goals & non-goals](#goals-non-goals)
+   * [Design considerations](#design-considerations)
+      + [HTML element](#html-element)
+         - [Usage](#usage)
+         - [Restrictions](#restrictions)
+         - [PEPC attributes](#pepc-attributes)
+      + [Permission UI](#permission-ui)
+         - [Standard UI](#standard-ui)
+         - [UI when the user can't change the permission](#ui-when-the-user-cant-change-the-permission)
+         - [UI when there is a mechanism that would block the request](#ui-when-there-is-a-mechanism-that-would-block-the-request)
+         - [UI when the permission is already granted](#ui-when-the-permission-is-already-granted)
+   * [Security](#security)
+      + [Threat model](#threat-model)
+         - [Safety](#safety)
+         - [Annoyance](#annoyance)
+      + [Fallbacks when constraints are not met](#fallbacks-when-constraints-are-not-met)
+      + [Locking the PEPC style](#locking-the-pepc-style)
+      + [One PEPC per permission type per page](#one-pepc-per-permission-type-per-page)
+      + [Conditions for usage in subframes](#conditions-for-usage-in-subframes)
+      + [Custom cursors](#custom-cursors)
+      + [Synthetic click events](#synthetic-click-events)
+   * [Privacy](#privacy)
+      + [Exposing user information bits](#exposing-user-information-bits)
+   * [Status quo elaboration](#status-quo-elaboration)
+      + [Permission prompts UX evaluation](#permission-prompts-ux-evaluation)
+      + [User Agent abuse mitigations](#user-agent-abuse-mitigations)
+   * [Alternatives considered](#alternatives-considered)
+      + [No platform changes](#no-platform-changes)
+      + [Improve existing usage triggered permission request journey](#improve-existing-usage-triggered-permission-request-journey)
+      + [Separate this into two proposals, (1) improved user intent signal and (2) modal permission prompts](#separate-this-into-two-proposals-1-improved-user-intent-signal-and-2-modal-permission-prompts)
+      + [Extending an existing element](#extending-an-existing-element)
+      + [Providing a registration JS API](#providing-a-registration-js-api)
+      + [Extending the Permissions API to provide an anchor point](#extending-the-permissions-api-to-provide-an-anchor-point)
+      + [Allowing recovery via the regular permission flow](#allowing-recovery-via-the-regular-permission-flow)
+      + [Implementing an origin based permission allow list registry](#implementing-an-origin-based-permission-allow-list-registry)
+   * [Extending the PEPC in the future](#extending-the-pepc-in-the-future)
+      + [PEPC for additional user agent settings](#pepc-for-additional-user-agent-settings)
+      + [Not "just" a button](#not-just-a-button)
+
 ## Introduction
 
 When making decisions about whether or not to expose particularly powerful
@@ -18,15 +79,17 @@ permanent "block" policies, or
 However these measures have limited effect
 [as indicated by metrics](#user-agent-abuse-mitigations).
 
-There are four main challenges with the status quo:
+Challenges with the status quo include:
 
 1.  **Insufficiency of existing mitigations**: The present day permissions spam
     and abuse mitigation approach has an architectural upper bound on user
     protection because the model relies on the website to choose when to trigger
     the permission request prompt rather than capturing a reliable signal of
-    user intent. Requiring a user gesture to [request permission to use a powerful feature](https://www.w3.org/TR/permissions/#dfn-request-permission-to-use) (or similar)
-    does not solve this problem as there are many ways of tricking a user into
-    providing a so called "[activation triggering input event](https://html.spec.whatwg.org/#activation-triggering-input-event)" 
+    user intent. Requiring a user gesture to
+    [request permission to use a powerful feature](https://www.w3.org/TR/permissions/#dfn-request-permission-to-use)
+    (or similar) does not solve this problem as there are many ways of tricking
+    a user into providing a so called
+    "[activation triggering input event](https://html.spec.whatwg.org/#activation-triggering-input-event)"
     (i.e., a user gesture, such as clicking the mouse or pressing a key) .
 
 1.  **Context**: Ideally, a site's developer will request access as part of a
@@ -38,10 +101,10 @@ There are four main challenges with the status quo:
     understanding of events taking place in the content area prior to the
     permission request. User agents could make better decisions and provide
     better prompts if they could make well-founded assumptions about the nature
-    of the user's interaction in the content area, and the user's intent. At
-    the moment user agents are limited to trying to make use of potentially
-    ambigous signals such as the time elapsed between page load and the
-    permission request.
+    of the user's interaction in the content area, and the user's intent. At the
+    moment user agents are limited to trying to make use of potentially ambigous
+    signals such as the time elapsed between page load and the permission
+    request.
 
     ![](images/image1.png) \
     *Example 1. A notification permission prompt on a news site (contents
@@ -90,6 +153,24 @@ There are four main challenges with the status quo:
     respect the user's previous decision. Especially in a stressful scenario
     such as an important presentation, users will struggle to navigate the
     settings surfaces to change the permission decision.*
+
+1.  **Accessibility**: Permission UI for a capability is triggered through the
+    direct use of the capability. Typically JavaScript invokes permission UI,
+    presenting an issue for both screen readers and magnification users.
+
+    Script attached to an existing DOM element is not interpreted by the screen
+    reader. If the DOM element was not accessibility tested and does not provide
+    sufficient explanation to its function, there is no way for a screen reader
+    user to know that the purpose of that element is to initiate access to a
+    capability.
+
+    Magnification users also struggle with the status quo. A page cannot detect
+    if a user is using OS level magnification tools (WAI for privacy reasons). A
+    user in a magnified state can easily miss the permission prompt if it falls
+    outside of their magnified viewport, and pages cannot assist these users.
+    With PEPC, the scrim and a contextually localized prompt greatly increase
+    the chance that the magnification user will observe the permission request
+    after interacting with the element.
 
 Optimizing the trade-off between usability and interruptions hit practical
 limits because, fundamentally, user agents
@@ -167,6 +248,11 @@ users and developers alike:
 -   It allows users to **revert** a previous "deny" decision if they have
     changed their mind and are now interested in the feature that the site
     provides.
+-   It is more **accessible**. The PEPC can have standard, localized, screen
+    reader announcements that make the purpose of the element comprehensible and
+    consistent across websites. The scrim and a contextually localized prompt
+    greatly increase the chance that a magnification user will observe the
+    permission request after interacting with the element.
 
 Example usage:
 
@@ -180,7 +266,6 @@ Example usage:
 </style>
 
 <permission
-  iconstyle="solid"
   onpromptdismiss="showContextInfo()"
   type="microphone"
 />
@@ -296,6 +381,12 @@ the user with a way forward to grant the required permission to the site,
 regardless of what permission state they currently find themselves in. Therefore
 only a `:granted` CSS pseudo-class is proposed.
 
+Sites may wish to modify the appearance (or hide) the PEPC when it fails
+validation. Therefore a `:invalid` CSS pseudo-class is also proposed. The
+invalid pseudo-class is applied when the element's validation status changes
+because of 'style' 'type_count' or 'illegal_subframe' reasons. The style should
+not be set when the element is not valid for transient reasons.
+
 The PEPC should be used in parallel with the Permissions API which already
 provides the necessary support to allow a site to respond to permission status
 changes. This is the encouraged pattern because it ensures that the site will
@@ -322,6 +413,24 @@ cancelable.
     that continues allowing a permission on a
     [previously granted](#ui-when-the-permission-is-already-granted) type of
     UI).
+-   `onvalidationstatuschange` - raised when the PEPC switches from being
+    "valid" to "invalid". The PEPC is considered "valid" when the user agent
+    trusts the integrity of the signal if the user were to click on it, and
+    "invalid" otherwise. There are many reasons for which an element can become
+    "invalid" as detailed in the [Security](#security) section, but to enumerate
+    a few: element style is invalid, element is covered, element has recently
+    moved, element has changed size, element is not fully visible in the
+    viewport, etc. The following two attributes are added to the `permission`
+    object which are related to the validation status:
+    -   `boolean is-valid` - indicates whether the status has transitioned to
+        "valid" or not.
+    -   `string reason` - indicating the reason why the status is "invalid" (or
+        "" if it's valid), and can be one of the following values:
+        ["style"](#locking-the-pepc-style),
+        ["type_count"](#one-pepc-per-permission-type-per-page),
+        ["illegal_subframe"](#conditions-for-usage-in-subframes),
+        ["covered"](#threat-model), ["recently_moved"](#threat-model),
+        ["recently_created"](#threat-model).
 
 Example usage:
 
@@ -378,58 +487,51 @@ this aspect.
     </td>
   </tr>
   <tr>
-    <td>onpromptdismiss onpromptaction</td>
+    <td>type-ext</td>
+    <td>
+      Allows specifying additional parameters for certain permission types, in
+      the form of space-separate key: value pairs.
+      The supported key/values are:
+      <ul>
+        <li><code>sysex: true/false</code> (for the
+         <a href="https://webaudio.github.io/web-midi-api/#permissions-integration">
+        midi</a> permission type)
+        </li>
+        <li><code>precise:true/false</code> (for the
+        <a href="https://www.w3.org/TR/geolocation/#position_options_interface">
+        geolocation</a> permission type)
+        </li>
+        <li><code>panTiltZoom:true/false</code> (for the
+        <a href="https://github.com/w3c/mediacapture-image/blob/main/ptz-explainer.md#control-camera-pantilt">
+        camera</a> permission type)
+        </li>
+      </ul>
+    </td>
+  </tr>
+  <tr>
+    <td>onpromptdismiss onpromptaction onvalidationstatuschange</td>
     <td>Event handlers as discussed above.</td>
   </tr>
   <tr>
-    <td>iconstyle</td>
-    <td>
-      Used to allow the site to select different icon styles. Supported values:
-      <table>
-        <tr>
-          <td>solid</td>
-          <td>
-            <img src="images/image12.png" />
-          </td>
-        </tr>
-        <tr>
-          <td>outline</td>
-          <td>
-            <img src="images/image13.png" />
-          </td>
-        </tr>
-        <tr>
-          <td>none</td>
-          <td>
-            <img src="images/image14.png" />
-          </td>
-        </tr>
-      </table>
-    </td>
+    <td>is-valid reason</td>
+    <td>As discussed above.</td>
   </tr>
   <tr>
-    <td>phrasing(?)</td>
+    <td>lang</td>
     <td>
-      **Open question**: It could be reasonable to provide sites the ability to
-      pick from one of several predefined phrasings.
-    </td>
-  </tr>
-  <tr>
-    <td>lang(?)</td>
-    <td>
-      **Open question**: Should the site be allowed to pick the language of the
-      PEPC? It can not be a fully free choice however as it needs to be a
-      language the user understands. The user agent can decide how to
-      [fallback](#fallbacks-when-constraints-are-not-met) if the language is not
-      one that the user speaks.
+      The global
+      <a href="https://html.spec.whatwg.org/multipage/dom.html#attr-lang">lang</a>
+      attribute has further purpose on the `permission` HTML element. Since the
+      contents of the PEPC is set by the user agent, this attribute will indicate
+      what language the text should be in. The user agent will attempt to provide
+      the text in that language if possible.<br/><br/>
+      Note: This will only be used to determine the language of the HTML element,
+      not of the permission confirmation UI itself. The permission UI should use
+      the same language that the rest of the user agent uses on similar security
+      surfaces.
     </td>
   </tr>
 </table>
-
-Notes: there is prior art in this domain the iOS LocationButton which allows for
-configuring the icon style out of more options, and hiding the text as well as
-the icon. For interoperability considerations, the options here are more
-limited.
 
 ### Permission UI
 
@@ -519,20 +621,42 @@ An example of how this could look:
 
 ### Threat model
 
-The security of the proposal hinges on there being a permission prompt that is
-used to confirm the user's decision to grant the permission.
-
 The goal of user agents should be to ensure that the PEPC is not trivial to
-abuse. Therefore the user agent should consider the following potentially
-malicious tactics and mitigate them:
+abuse. There are two primary types of abuse: safety, and user annoyance which we
+will consider separately as they are addressed by the confirmation UI and by
+constraints on the PEPC element respectively.
+
+#### Safety
+
+The safety of PEPC hinges on there being a permission prompt that is used to
+confirm the user's decision to grant the permission, we call this the
+"Confirmation UI". The confirmation UI is strictly better than the existing
+non-modal permission prompt implemented by most browsers because it:
+
+-   (Same as current UI) is generated by the browser, with the only inputs
+    accepted from the website are permission(s) types requested.
+-   Modal, requiring explicit dismiss or decision gesture for the user journey
+    to continue, with website content obscured with a semi-opaque and blurred
+    scrim which prevents the site from manipulating the user's decision making
+    or obfuscating the modal content.
+
+The strict constraints of the confirmation UI make the PEPC minimally as safe
+(and arguably safere) than existing non-modal UI.
+
+#### Annoyance
+
+Mitigating annoyance by ensuring user intent is more complex than ensuring the
+safety of the PEPC, but equally important to the goals of the proposal. Without
+mitigating annoyance we don't believe it to be reasonable to impose the safer,
+but more disruptive, modal confirmation UI.
+
+The site can use techniques to annoy the user by repeatedly triggering modals,
+including:
 
 -   The site could trick the user by choosing some misleading text (e.g. "Click
     here to proceed"). Therefore the text on the PEPC should not be able to be
     set by the site, instead the user agent should make sure to set it to
-    something comprehensive (e.g. "Share location" for a geolocation PEPC). \
-    **Open question:**should there be a mechanism that allows the site to pick
-    one of several flavors of text (example: "Share location" vs "Use
-    location")?
+    something comprehensive (e.g. "Share location" for a geolocation PEPC).
 -   The style of the PEPC can be set to obscure the purpose (e.g. setting the
     same text color and button color would make the text unreadable). Therefore
     the style should be verified, validated and overridden by the user agent as
@@ -552,10 +676,10 @@ malicious tactics and mitigate them:
     that the PEPC has not been inserted into the DOM recently (e.g. in the past
     500ms or so).
 
-The user agent-rendered confirmation UI after the user clicks on the PEPC is
-what makes the PEPC ultimately secure. User agents should take proper care to
-ensure this confirmation UI is at least as secure as their current permission
-prompt flow.
+Reminder: the user agent-rendered confirmation UI after the user clicks on the
+PEPC is what makes the PEPC ultimately secure. User agents should take proper
+care to ensure this confirmation UI is at least as secure as their current
+permission prompt flow.
 
 ### Fallbacks when constraints are not met
 
@@ -577,19 +701,6 @@ click is not assured:
     check or mitigation will self-correct itself (e.g. if the PEPC has moved
     recently there will be a short cooldown before the PEPC integrity is
     restored).
--   The PEPC could be corrected by the user agent itself in order to preserve
-    its integrity. For example, if the style specified by the site sets the PEPC
-    font to be too small to read, this can be corrected by the user agent by
-    forcing a minimum font size on the PEPC. This should be considered primarily
-    in the case of CSS, which the user agent can override as it sees fit. **Open
-    question:** should there be a way for sites to specify whether they want to
-    allow the user agent to override the style? Some site authors might be
-    happier triggering the legacy prompt request flow, rather than have the PEPC
-    style be changed whereas others might prioritize the benefits of a PEPC
-    permission flow over making sure the style is exactly as desired. User
-    agents need to weigh in the additional flexibility afforded to site authors
-    against the potential user confusion of seeing the PEPC permission prompt vs
-    the regular permission prompt.
 
 ### Locking the PEPC style
 
@@ -597,6 +708,13 @@ User agents should lock down the styling of the PEPC in regards to the color,
 size, border, rounding, contents, icon, etc. of the PEPC, as outlined below.
 This provides protection against some of the clickjacking and social engineering
 attacks that bad actors might use to trick the user into clicking the element.
+
+We are working with developers to ensure the correct tradeoff between sufficient
+developer control over the look-and-feel of the PEPC, while ensuring that the
+browser has captured user intent. The proposal in this explainer intentionally
+errs on the side of being cautiously over-restrictive, as this will minimize the
+threat surface area and acts as a forcing function for developer feedback on
+proposed styling restrictions during trials.
 
 <table>
   <tr>
@@ -827,6 +945,65 @@ issues. If the user initiates the permission request it ensures that:
 
 ## Alternatives considered
 
+### No platform changes
+
+Sites could replicate most of this behavior currently by using a button that
+triggers the permission request. Developers could be actively encouraged to use
+this pattern via articles, communications etc.
+
+Disadvantages:
+
+1.  There is no signal or guarantee indicating the user's intent. This means
+    that the user agent still needs to remain defensive about permission
+    requests.
+1.  It requires user experience design and consideration from the site's side.
+    There are many ways to get this wrong and provide a suboptimal user
+    experience. Also, providing a solution with best-practices built in helps
+    resource-constrained development teams more.
+
+### Improve existing usage triggered permission request journey
+
+The existing permission request journey is triggered by usage of the relevant
+capability, for example, `getUserMedia` triggering a Camera permission journey.
+We agree there may be ways to improve the current journey and we intend to
+explore these in parallel, however, there is an upper bound to improvements.
+Specifically:
+
+1.  Accessibility. Native HTML elements (such as the proposed permission element
+    in this explainer) come with built-in roles, properties, and keyboard
+    interaction behaviors understood by assistive technologies. While JavaScript
+    solutions can be *made* accessible, the PEPC can be accessible by default.
+1.  User intent. JavaScript triggered UI journeys will never be able to capture
+    user intent the way we believe is possible with PEPC. User gestures are
+    easily gamed by manipulative or malicious websites. It's difficult to see
+    how more advanced heuristics could be used to determine user intent, and we
+    believe that any heuristics to determine user intent would be significantly
+    more complicated that determining user intent for the semantic element.
+1.  Context. While sites *may* do a good job with providing context to the user
+    about why a permission journey is happening, the PEPC *ensures* the context
+    is present with consistent button UI and labels, and strong signal of user
+    intent.
+1.  Reconsideration. Sometimes users make a mistake in a permission decision.
+    It's undesirable for browsers to allow users to reconsider past decisions
+    with the usage-driven UI model, as enabling reconsideration would present
+    spammy or abusive websites the ability to repeatedly prompt users who block
+    a permission request. Help text directing users to navigate browser UI to
+    revisit past permission decisions requires web developers to provide users
+    with evergreen browser-specific directions on changes to the browser
+    permission settings. In practice this is a significant burden on web
+    developers, often results in stale directions, and users seldom succeed at
+    these journeys even when the directions are up-to-date and clear.
+
+### Separate this into two proposals, (1) improved user intent signal and (2) modal permission prompts
+
+We believe these aspects of the proposal offer the most user utility when
+bundled. If we only improve the user intent signal with a permission element, we
+fail to solve for change blindness and accessibility problems for magnification
+users. If we only introduce modal permission prompts without improving our
+confidence in user intent and context we increase the level of interruption and
+disruption in user journeys with blocking modals about which the user may have
+little or no context for decision making.
+
 ### Extending an existing element
 
 Instead of adding a new element, existing HTML elements can be augmented to
@@ -888,22 +1065,6 @@ Disadvantages:
         [type](https://html.spec.whatwg.org/multipage/input.html#attr-input-type)
         would be a poor design fit.
 
-### No platform changes
-
-Sites could replicate most of this behavior currently by using a button that
-triggers the permission request. Developers could be actively encouraged to use
-this pattern via articles, communications etc.
-
-Disadvantages:
-
-1.  There is no signal or guarantee indicating the user's intent. This means
-    that the user agent still needs to remain defensive about permission
-    requests.
-1.  It requires user experience design and consideration from the site's side.
-    There are many ways to get this wrong and provide a suboptimal user
-    experience. Also, providing a solution with best-practices built in helps
-    resource-constrained development teams more.
-
 ### Providing a registration JS API
 
 A JS API could be used to mark a particular HTML element as the PEPC of the
@@ -915,7 +1076,6 @@ page.
 <script>
   pepc_params = {};
   pepc_params['type'] = 'geolocation';
-  pepc_params['iconstyle'] = 'solid';
   navigator.permissions.registerPEPC(
     document.getElementById('pepc'),
     pepc_params,
