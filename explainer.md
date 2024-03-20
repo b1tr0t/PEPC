@@ -13,7 +13,7 @@ sites to manipulate the user's decision making by obscuring site content during
 the critical decision moment of the journey. A semantic element and modal UI are
 connected in the same proposal as accurately capturing user intent is essential
 to reducing the modal's potential for user annoyance. While we believe
-improvements to existing capability based permission journeys can and should be
+improvements to existing capability based permission flows can and should be
 explored, we believe there to have limited headroom for optimization, and that
 this proposal offers a significantly better user experience for users and
 developers.
