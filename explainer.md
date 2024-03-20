@@ -5,61 +5,63 @@
 We propose a semantic permission element with styling constraints that ensures a
 very high level of confidence concerning *user intent* to make a permission
 decision. We believe this solves user problems related to accessibility,
-context, regret, and more. The permission element is more accessible and more
-secure than the current permission flows as the semantic element is
-by default more screen reader friendly than JavaScript. Full page modal
-confirmation UI reduces the risk of change blindness and makes it more difficult for
-sites to manipulate the user's decision making by obscuring site content during
-the critical decision moment of the journey. A semantic element and modal UI are
-connected in the same proposal as accurately capturing user intent is essential
-to reducing the modal's potential for user annoyance. While we believe
-improvements to existing capability based permission flows can and should be
-explored, we believe there to be limited headroom for optimization, and that
-this proposal offers a significantly better user experience for users and
-developers.
+context, regret, and more. The permission element is more
+[accessible](#accessibility) and more secure than the current permission flows
+as the semantic element is by default more screen reader friendly than
+JavaScript. Full page modal confirmation UI reduces the risk of change blindness
+and makes it more difficult for sites to manipulate the user's decision making
+by obscuring site content during the critical decision moment of the journey. A
+semantic element and modal UI are connected in the same proposal as accurately
+capturing user intent is essential to reducing the modal's potential for user
+annoyance. While we believe improvements to existing capability based permission
+flows can and should be explored, we believe there to be limited headroom for
+optimization, and that this proposal offers a significantly better user
+experience for users and developers.
 
-- [Page Embedded Permission Control (PEPC)](#page-embedded-permission-control-pepc)
-   * [tl;dr](#tldr)
-   * [Introduction](#introduction)
-   * [Proposal](#proposal)
-   * [Goals & non-goals](#goals-non-goals)
-   * [Design considerations](#design-considerations)
-      + [HTML element](#html-element)
-         - [Usage](#usage)
-         - [Restrictions](#restrictions)
-         - [PEPC attributes](#pepc-attributes)
-      + [Permission UI](#permission-ui)
-         - [Standard UI](#standard-ui)
-         - [UI when the user can't change the permission](#ui-when-the-user-cant-change-the-permission)
-         - [UI when there is a mechanism that would block the request](#ui-when-there-is-a-mechanism-that-would-block-the-request)
-         - [UI when the permission is already granted](#ui-when-the-permission-is-already-granted)
-   * [Security](#security)
-      + [Threat model](#threat-model)
-         - [Safety](#safety)
-         - [Annoyance](#annoyance)
-      + [Fallbacks when constraints are not met](#fallbacks-when-constraints-are-not-met)
-      + [Locking the PEPC style](#locking-the-pepc-style)
-      + [One PEPC per permission type per page](#one-pepc-per-permission-type-per-page)
-      + [Conditions for usage in subframes](#conditions-for-usage-in-subframes)
-      + [Custom cursors](#custom-cursors)
-      + [Synthetic click events](#synthetic-click-events)
-   * [Privacy](#privacy)
-      + [Exposing user information bits](#exposing-user-information-bits)
-   * [Status quo elaboration](#status-quo-elaboration)
-      + [Permission prompts UX evaluation](#permission-prompts-ux-evaluation)
-      + [User Agent abuse mitigations](#user-agent-abuse-mitigations)
-   * [Alternatives considered](#alternatives-considered)
-      + [No platform changes](#no-platform-changes)
-      + [Improve existing usage triggered permission request journey](#improve-existing-usage-triggered-permission-request-journey)
-      + [Separate this into two proposals, (1) improved user intent signal and (2) modal permission prompts](#separate-this-into-two-proposals-1-improved-user-intent-signal-and-2-modal-permission-prompts)
-      + [Extending an existing element](#extending-an-existing-element)
-      + [Providing a registration JS API](#providing-a-registration-js-api)
-      + [Extending the Permissions API to provide an anchor point](#extending-the-permissions-api-to-provide-an-anchor-point)
-      + [Allowing recovery via the regular permission flow](#allowing-recovery-via-the-regular-permission-flow)
-      + [Implementing an origin based permission allow list registry](#implementing-an-origin-based-permission-allow-list-registry)
-   * [Extending the PEPC in the future](#extending-the-pepc-in-the-future)
-      + [PEPC for additional user agent settings](#pepc-for-additional-user-agent-settings)
-      + [Not "just" a button](#not-just-a-button)
+-   [Page Embedded Permission Control (PEPC)](#page-embedded-permission-control-pepc)
+    *   [tl;dr](#tldr)
+    *   [Introduction](#introduction)
+    *   [Proposal](#proposal)
+    *   [Goals & non-goals](#goals-non-goals)
+    *   [Design considerations](#design-considerations)
+        +   [HTML element](#html-element)
+            -   [Usage](#usage)
+            -   [Restrictions](#restrictions)
+            -   [PEPC attributes](#pepc-attributes)
+        +   [Permission UI](#permission-ui)
+            -   [Standard UI](#standard-ui)
+            -   [UI when the user can't change the permission](#ui-when-the-user-cant-change-the-permission)
+            -   [UI when there is a mechanism that would block the request](#ui-when-there-is-a-mechanism-that-would-block-the-request)
+            -   [UI when the permission is already granted](#ui-when-the-permission-is-already-granted)
+    *   [Security](#security)
+        +   [Threat model](#threat-model)
+            -   [Safety](#safety)
+            -   [Annoyance](#annoyance)
+        +   [Fallbacks when constraints are not met](#fallbacks-when-constraints-are-not-met)
+        +   [Locking the PEPC style](#locking-the-pepc-style)
+        +   [One PEPC per permission type per page](#one-pepc-per-permission-type-per-page)
+        +   [Conditions for usage in subframes](#conditions-for-usage-in-subframes)
+        +   [Custom cursors](#custom-cursors)
+        +   [Synthetic click events](#synthetic-click-events)
+    *   [Privacy](#privacy)
+        +   [Exposing user information bits](#exposing-user-information-bits)
+    *   [Status quo elaboration](#status-quo-elaboration)
+        +   [Permission prompts UX evaluation](#permission-prompts-ux-evaluation)
+        +   [User Agent abuse mitigations](#user-agent-abuse-mitigations)
+    *   [Alternatives considered](#alternatives-considered)
+        +   [No platform changes](#no-platform-changes)
+        +   [Improve existing usage triggered permission request journey](#improve-existing-usage-triggered-permission-request-journey)
+        +   [Separate this into two proposals, (1) improved user intent signal
+            and (2) modal permission
+            prompts](#separate-this-into-two-proposals-1-improved-user-intent-signal-and-2-modal-permission-prompts)
+        +   [Extending an existing element](#extending-an-existing-element)
+        +   [Providing a registration JS API](#providing-a-registration-js-api)
+        +   [Extending the Permissions API to provide an anchor point](#extending-the-permissions-api-to-provide-an-anchor-point)
+        +   [Allowing recovery via the regular permission flow](#allowing-recovery-via-the-regular-permission-flow)
+        +   [Implementing an origin based permission allow list registry](#implementing-an-origin-based-permission-allow-list-registry)
+    *   [Extending the PEPC in the future](#extending-the-pepc-in-the-future)
+        +   [PEPC for additional user agent settings](#pepc-for-additional-user-agent-settings)
+        +   [Not "just" a button](#not-just-a-button)
 
 ## Introduction
 
@@ -154,9 +156,10 @@ Challenges with the status quo include:
     such as an important presentation, users will struggle to navigate the
     settings surfaces to change the permission decision.*
 
-1.  **Accessibility**: Permission UI for a capability is triggered through the
-    direct use of the capability. Typically JavaScript invokes permission UI,
-    presenting an issue for both screen readers and magnification users.
+1.  <a name="accessibility"></a>**Accessibility**: Permission UI for a
+    capability is triggered through the direct use of the capability. Typically
+    JavaScript invokes permission UI, presenting an issue for both screen
+    readers and magnification users.
 
     Script attached to an existing DOM element is not interpreted by the screen
     reader. If the DOM element was not accessibility tested and does not provide
