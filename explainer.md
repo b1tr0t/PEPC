@@ -5,7 +5,7 @@
 We propose a semantic permission element with styling constraints that ensures a
 very high level of confidence concerning *user intent* to make a permission
 decision. We believe this solves user problems related to accessibility,
-context, regret and more. The permission element is more accessible and more
+context, regret, and more. The permission element is more accessible and more
 secure than the current current permission journeys as the semantic element is
 by default more screen reader friendly than JavaScript and full page modal
 confirmation UI reduces risk of change blindness and makes it more difficult for
