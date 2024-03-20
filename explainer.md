@@ -8,7 +8,7 @@ decision. We believe this solves user problems related to accessibility,
 context, regret, and more. The permission element is more accessible and more
 secure than the current permission flows as the semantic element is
 by default more screen reader friendly than JavaScript. Full page modal
-confirmation UI reduces risk of change blindness and makes it more difficult for
+confirmation UI reduces the risk of change blindness and makes it more difficult for
 sites to manipulate the user's decision making by obscuring site content during
 the critical decision moment of the journey. A semantic element and modal UI are
 connected in the same proposal as accurately capturing user intent is essential
